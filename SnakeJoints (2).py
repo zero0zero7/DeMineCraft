@@ -18,6 +18,7 @@ class SnakeJoints():
         self.target_speed = target_speed
 
         # this part is not from the paper. the paper inputs a,b,c as a function of distance travelled by the joint. in our case, we want a,b,c to be modified on the go. might have a more elegant solution 
+        # disp of each segment; ref point = starting pos of head (node 0th)
         self.distance_moved_by_each_segment = np.array([0 - i*self.length_per_segment for i in range(self.number_of_segments + 1)])
         self.a = np.array([a for _ in range(self.number_of_segments + 1)])
         self.b = np.array([b for _ in range(self.number_of_segments + 1)])
@@ -38,7 +39,7 @@ class SnakeJoints():
         inverse = self.get_inverse(thetas)
         sc = self.get_scs(thetas)
         head = self.get_head_dxy()
-        return ones @ (inverse @ (sc @ head))
+        return ones @ (inverse @ (sc @ head)) #@ =numpy matrix multiply
 
     def set_parameters(self, a, b, c):
         for q in self.queues_for_parameters:
@@ -57,7 +58,7 @@ class SnakeJoints():
         assert self.start_time
         cur_time = time.time()
         interval = cur_time - self.prev_time
-        delta_distance = self.target_speed * (interval)
+        delta_distance = self.target_speed * (interval) #dist to be travelled (?)
         self.distance_moved_by_each_segment += delta_distance
         self.check_update_params()
         self.increment_B_and_C(delta_distance)
@@ -65,10 +66,13 @@ class SnakeJoints():
         return interval
     
     def check_update_params(self):
+        #i=index ; q=deque
         for i, q in enumerate(self.queues_for_parameters):
-            if q:
+            if q: #q not empty
+                #distance moved by 0th segment <= dist by this particular segment
                 if q[0]['distance'] <= self.distance_moved_by_each_segment[i]:
-                    params = q.popleft()
+                    params = q.popleft() #dequeue of 0th segment
+                    # reset this particular segment's params to that of the 0th segment
                     self.a[i] = params['a']
                     self.b[i] = params['b']
                     self.c[i] = params['c']
@@ -111,3 +115,18 @@ class SnakeJoints():
         dx = math.cos(theta0) #* self.target_speed
         dy = math.sin(theta0) #* self.target_speed
         return np.array([[dx],[dy]])
+
+###TESTING###
+a = math.pi/3
+b = math.pi/2
+c = 0
+target_speed = 50
+length_of_snake = 1500 # in mm
+number_of_segments = 12
+
+snake_joints = SnakeJoints(a, b, c, number_of_segments, length_of_snake, target_speed)
+# print(snake_joints.distance_moved_by_each_segment)
+# print(snake_joints.B, snake_joints.C)
+# print(snake_joints.queues_for_parameters)
+snake_joints.start_movement()
+print(snake_joints.get_phis())
